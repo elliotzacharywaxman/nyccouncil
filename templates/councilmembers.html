@@ -1,0 +1,108 @@
+{{template "base" .}}
+{{define "title"}}{{.Title}}{{end}}
+{{define "head"}}
+
+<style>
+.committees {
+  line-height: 18px;
+  font-size: 11px;
+}
+.committee {
+}
+.class, .district, .borough, .party {
+  font-size: .8rem;
+  font-weight: 200;
+}
+.member-type {
+  font-size: 10px;
+  background-color: #f7f0bc;
+  padding: 0 .25rem;
+}
+.social {
+  font-size: .9rem;
+}
+.external-links {
+  font-size: .9rem;
+}
+</style>
+{{end}}
+
+
+{{define "middle"}}
+
+<div class="row">
+<div class="col">
+
+<h3>Council Members</h3>
+
+<table class="table">
+<thead>
+  <tr>
+    <th>Council Member</th>
+    <th>Committee / Caucus</th>
+    <th>Social</th>
+    <th>Links</th>
+  </tr>
+</thead>
+<tbody>
+{{range .People}}
+<tr>
+  <td><span class="full-name"><a href="/councilmembers/{{.Slug}}">{{.FullName}}</a></span> <span class="party">{{.Party}}</span><br>
+    <span class="class">{{.Start.Format "Jan 2006"}} - {{.End.Format "Jan 2006"}}</span>
+    {{if .District}}
+      <br><span class="district">District {{.District}}</span> <span class="borough">({{.Borough}})</span>
+    {{end}}
+    {{if ne .CouncilTitle "Council Member"}}
+      <br><span class="badge bg-info text-dark">{{.CouncilTitle}}</span>
+    {{end}}
+  </td>
+  <td class="committees">{{range .ActiveOfficeRecords }}
+  <span class="committee">{{.BodyName}}</span>
+  {{ if or (eq .MemberType "CHAIR") (eq .Title "CHAIRPERSON") }}<span class="member-type"> {{ if eq .Title "CHAIRPERSON" }}(chair){{else}}({{.Title | ToLower}}){{end}}</span>{{end}}
+  <br>
+  {{end }}</td>
+  <td class="social">{{ range .SocialAccounts }}
+  <a href="{{.Link}}" class="{{.CSSClass}}">{{.Username}}</a><br>
+  {{end}}
+  </td>
+  <td class="external-links">
+    {{ if .WWW }}
+    <a href="{{.WWW}}">Official Website</a>
+    {{ end }}
+  </td>
+</tr>
+{{end}}
+
+</tbody>
+</table>
+
+</div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-4">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Twitter Tip</h5>
+      See tweets by all NYC Council Members on this <a href="https://twitter.com/i/lists/1456785682618257409" class="card-link">"NYC Council 2022-2023" Twitter List</a>
+    </div>
+  </div>
+  </div>
+
+  <div class="col-4">
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Twitter Search Tip</h5>
+      Search for mentions of legislation within a twitter list  <a href="https://twitter.com/search?q=(Intro%20OR%20intro.nyc%20OR%20legistar.council.nyc.gov)%20list%3A1456785682618257409&f=live" class="card-link"><code>(Intro OR intro.nyc OR legistar.council.nyc.gov) list:1456785682618257409</code></a>
+    </div>
+  </div>
+  </div>
+
+</div>
+
+{{end}}
+
+{{ define "last-updated"}}
+<p>Data Last Updated <span class="last-updated" title="{{.LastSync.LastRun}}">{{.LastSync.LastRun | Time}}</span></p>
+{{end}}
+

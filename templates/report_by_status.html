@@ -1,0 +1,235 @@
+{{template "base" .}}
+{{define "title"}}Report: Most Sponsored Legislation{{end}}
+{{define "head"}}
+
+<style>
+
+
+.form-select {
+  width:inherit;
+  display: inline-block;
+  max-width: 350px;
+}
+.form-check {
+  display: inline-block;
+}
+.select-committee {
+  display: inline-block;
+  margin-right: 2em;
+}
+
+@media (min-width: 576px) { 
+  .form-select {
+    max-width: 450px;
+  }
+}
+
+tr > th.number-col {
+  text-align: right;
+}
+
+#data-body > tr > td.number {
+  text-align: right;
+}
+
+</style>
+{{end}}
+
+
+{{define "middle"}}
+
+
+<ul class="nav nav-tabs my-3">
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/most_sponsored">Sponsors</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" aria-current="page" href="/reports/status">Legislative Activity</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/similarity">Similarity</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/councilmembers">Council Members</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/committees">Committees</a>
+  </li>
+</ul>
+
+
+<fieldset class="my-5">
+  <div class="select-session">
+  <select name="session" id="session" class="form-select">
+    {{range .Sessions }}
+    <option value="{{.}}">{{.}} Legislative Session</option>
+    {{end}}
+  </select>
+  </div>
+</fieldset>
+
+<div id="chart"></div>
+<div class="my-5"><p>Note: Bills that are withdrawn are excluded. Bills with multiple hearings are counted on date of first hearing.</p></div>
+<div id="data"><table class="table">
+    <thead>
+      <tr>
+        <th>Session Day</th>
+        <th>Date</th>
+        <th class="number-col">Bills Introduced</th>
+        <th class="number-col">Hearings Held</th>
+        <th class="number-col">Passed Council</th>
+        <th class="number-col">Enacted</th>
+      </tr>
+    </thead>
+    <tbody id="data-body">
+      <template id="data-row">
+        <tr>
+          <td class="session-day"></td>
+          <td class="date"></td>
+          <td class="introduced number"></td>
+          <td class="hearings number"></td>
+          <td class="passed number"></td>
+          <td class="enacted number"></td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+  </div>
+
+
+
+{{end}}
+
+{{ define "last-updated"}}
+<p>Data Last Updated <span class="last-updated" title="{{.LastSync.LastRun}}">{{.LastSync.LastRun | Time}}</span></p>
+{{end}}
+
+{{define "javascript"}}
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.5"></script>
+<script type="text/javascript">
+// bootstrap current selection from URL
+const urlSearchParams = new URLSearchParams(window.location.search)
+const defaultSession = urlSearchParams.get("session") ? urlSearchParams.get("session") : "{{.Session}}";
+const sessionElement = document.getElementById("session");
+Array.from(sessionElement.options).forEach(e => {e.selected = (e.value == defaultSession)})
+sessionElement.addEventListener("change", _ => {
+  if (sessionElement.selectedIndex == 0 ) {
+    location.href = location.pathname;
+    return
+  }
+  var qs = new URLSearchParams()
+  qs.set("session", sessionElement.value)
+  location.href = location.pathname + "?" + qs.toString();
+})
+
+function shortDate() {
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'America/New_York'
+  })
+}
+
+
+let data = {{.Data}};
+
+let target = document.getElementById("chart")
+
+target.append(
+  Plot.plot({
+    width:target.getBoundingClientRect().width,
+    height: 600,
+    marginBottom: 50,
+    marginRight:95,
+    color: {
+      type: "ordinal",
+      scheme: "buylrd",
+      legend: true, //"ramp",
+      label: null
+    },
+    y: {label:null, grid:true},
+    x: {
+      domain:[new Date({{.Session.StartYear}}, 0, 1), new Date({{.Session.EndYear}},11,31)],
+      // tickFormat: "%b-%Y",
+      type:"utc",
+      tickRotate: -45,
+      nice: true,
+    },
+    // interval: d3.utcDay,
+    marks: [
+    Plot.areaY(data, {
+        x:"Date", 
+        y2:"Count", 
+        fill:"Status", 
+        z: "Status",
+        // sort: "Date",
+        curve: "step-after",
+        // fillOpacity: 1
+      }),
+    // Plot.ruleY([0])
+
+    // show last count
+    Plot.text(data, {
+      filter: d => d.Last,
+      x: "Date",
+      y: "Count",
+      text: d => {return d.Status + ": " + d.Count},
+      fill:"Status",
+      dx: 4,
+      textAnchor: "start"
+    })
+
+   ]
+
+}));
+
+let collate = {};
+data.forEach(d => {
+  if (collate[d.Date] === undefined ) {
+    collate[d.Date] = {Date: d.Date, Dt: new Date(d.Date)}
+  }
+  collate[d.Date][d.Status] = d.Count
+})
+let dates = Object.values(collate);
+dates.sort((a, b) => { aa = a.Dt.getTime(); bb = b.Dt.getTime(); if (aa<bb){return -1}; if (aa > bb){return 1}; return 0 } )
+let introduced = 0;
+let hearing = 0
+let passed = 0
+let enacted = 0;
+dates.forEach(d => {
+  if (d["Introduced"] === undefined ) {d["Introduced"] = introduced} else {introduced = d["Introduced"]}
+  if (d["Hearing Held"] === undefined ) {d["Hearing Held"] = hearing} else {hearing = d["Hearing Held"]}
+  if (d["Passed Council"] === undefined ) {d["Passed Council"] = passed} else {passed = d["Passed Council"]}
+  if (d["Enacted"] === undefined ) {d["Enacted"] = enacted} else {enacted = d["Enacted"]}
+})
+
+let df = new Intl.DateTimeFormat([], {dateStyle:"medium", timeZone:"America/New_York"});
+let nf = new Intl.NumberFormat();
+target = document.getElementById("data-body")
+let template = document.getElementById("data-row")
+let startDate = new Date({{.Session.StartYear}}, 0, 1);
+dates.forEach(d => {
+  var clone = template.content.cloneNode(true);
+
+  const diffInTime =  d.Dt.getTime() - startDate.getTime();
+  // One day in milliseconds
+  const oneDay = 1000 * 60 * 60 * 24;
+  const days = Math.round(diffInTime / oneDay);
+
+  clone.querySelectorAll(".session-day")[0].textContent = nf.format(days)
+  clone.querySelectorAll(".date")[0].textContent = df.format(d.Dt);
+  clone.querySelectorAll(".introduced")[0].textContent = nf.format(d["Introduced"]);
+  clone.querySelectorAll(".hearings")[0].textContent = nf.format(d["Hearing Held"]);
+  clone.querySelectorAll(".passed")[0].textContent = nf.format(d["Passed Council"]);
+  clone.querySelectorAll(".enacted")[0].textContent = nf.format(d["Enacted"]);
+  target.appendChild(clone);
+
+})
+
+
+
+</script>
+{{end}}
+

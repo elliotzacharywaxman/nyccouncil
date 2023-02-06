@@ -1,0 +1,195 @@
+{{template "base" .}}
+{{define "title"}}Report: Committee Activity{{end}}
+{{define "head"}}
+
+<style>
+
+
+.form-select {
+  width:inherit;
+  display: inline-block;
+  max-width: 350px;
+}
+.form-check {
+  display: inline-block;
+}
+.select-session {
+  display: inline-block;
+  margin-right: 2em;
+}
+
+
+@media (min-width: 576px) { 
+  .form-select {
+    max-width: 450px;
+  }
+}
+
+tr > th.number-col {
+  text-align: right;
+}
+
+#data-body > tr > td.number {
+  text-align: right;
+}
+tr > td.flex > div {
+  display: flex;
+  column-gap: 10px;
+  align-items: baseline;
+}
+td.flex > div > div.progress {
+  flex-grow: 1;
+}
+
+.progress-bar {
+  background-color: #2f56a6;
+}
+
+</style>
+{{end}}
+
+
+{{define "middle"}}
+
+
+<ul class="nav nav-tabs my-3">
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/most_sponsored">Sponsors</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/status">Legislative Activity</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/similarity">Similarity</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/councilmembers">Council Members</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" aria-current="page"  href="/reports/committees">Committees</a>
+  </li>
+</ul>
+
+
+<fieldset class="my-5">
+  <div class="select-session">
+  <select name="session" id="session" class="form-select">
+    {{range .Sessions }}
+    <option value="{{.}}">{{.}} Legislative Session</option>
+    {{end}}
+  </select>
+  </div>
+</fieldset>
+
+<div id="data">
+  <table class="table tablesorter" id="data-table">
+    <thead>
+      <tr>
+        <th>Committee</th>
+        <th class="number-col" data-sortInitialOrder="desc">Bills</th>
+        <th class="number-col" data-sortInitialOrder="desc">Bills w/ Hearing</th>
+        <th class="number-col" data-sortInitialOrder="desc">Bills Voted On</th>
+        <!-- <th class="number-col" data-sortInitialOrder="desc">Enacted</th> -->
+      </tr>
+    </thead>
+    <tbody id="data-body">
+      <template id="data-row">
+        <tr>
+          <td class="committee"></td>
+          <td class="bill-total number"></td>
+          <td class="bill-hearing flex">
+            <div>
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">25%</div>
+            </div>
+            <span class="number"></span>
+          </div>
+          </td>
+          <td class="bill-passed flex">
+            <div>
+              <div class="progress">
+              <div class="progress-bar" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100">25%</div>
+            </div>
+            <span class="number"></span>
+            </div>
+          </td>
+          <!-- <td class="bill-enacted number"></td> -->
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</div>
+
+<div class="my-5"><p>Note: Bills that are withdrawn are excluded. Bills with multiple hearings are counted once. Bills with activity in multiple committees are counted towards the current listed committee.</p></div>
+
+{{end}}
+
+{{ define "last-updated"}}
+<p>Data Last Updated <span class="last-updated" title="{{.LastSync.LastRun}}">{{.LastSync.LastRun | Time}}</span></p>
+{{end}}
+
+{{define "javascript"}}
+<script type="text/javascript">
+// bootstrap current selection from URL
+const urlSearchParams = new URLSearchParams(window.location.search)
+const defaultSession = urlSearchParams.get("session") ? urlSearchParams.get("session") : "{{.Session}}";
+const sessionElement = document.getElementById("session");
+
+Array.from(sessionElement.options).forEach(e => {e.selected = (e.value == defaultSession)})
+sessionElement.addEventListener("change", _ => {
+  if (sessionElement.selectedIndex == 0 ) {
+    location.href = location.pathname;
+    return
+  }
+  var qs = new URLSearchParams(window.location.search)
+  qs.set("session", sessionElement.value)
+  location.href = location.pathname + "?" + qs.toString();
+})
+
+let data = {{.Data}};
+
+let nf = new Intl.NumberFormat();
+let pct = new Intl.NumberFormat(undefined, {
+   style: 'percent',
+   maximumFractionDigits: 0
+});
+let template = document.getElementById("data-row")
+let target = document.getElementById("data-body")
+
+data.forEach(d => {
+  var clone = template.content.cloneNode(true);
+  clone.querySelectorAll(".committee")[0].textContent = d.Committee;
+  clone.querySelectorAll(".bill-total")[0].textContent = nf.format(d.BillTotal);
+
+  let n = d.BillHearing * 1.0 / d.BillTotal;
+  let td = clone.querySelectorAll(".bill-hearing")[0];
+  td.querySelectorAll("div.progress-bar")[0].style.width = pct.format(n);
+  td.querySelectorAll("div.progress-bar")[0].textContent = pct.format(n);
+  // TODO: set aria-valuenow
+  td.querySelectorAll("span")[0].textContent = nf.format(d.BillHearing);
+
+  n = d.BillCommitteeVote * 1.0 / d.BillTotal;
+  td = clone.querySelectorAll(".bill-passed")[0];
+  td.querySelectorAll("div.progress-bar")[0].style.width = pct.format(n);
+  td.querySelectorAll("div.progress-bar")[0].textContent = pct.format(n);
+  // TODO: set aria-valuenow
+  td.querySelectorAll("span")[0].textContent = nf.format(d.BillCommitteeVote);
+
+  // clone.querySelectorAll(".bill-hearing")[0].textContent = pct.format(d.BillHearing * 1.0 / d.BillTotal) + " " + nf.format(d.BillHearing);
+  // clone.querySelectorAll(".bill-passed")[0].textContent = nf.format(d.BillCommitteeVote);
+  // clone.querySelectorAll(".bill-enacted")[0].textContent = nf.format(d.BillEnacted);
+  target.appendChild(clone);
+})
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js" integrity="sha512-qzgd5cYSZcosqpzpn7zF2ZId8f/8CHmFKZ8j7mU4OUXTNRd5g+ZHBPsgKEwoqxCtdQvExE5LprwwPAgoicguNg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/css/theme.bootstrap_4.min.css" integrity="sha512-2C6AmJKgt4B+bQc08/TwUeFKkq8CsBNlTaNcNgUmsDJSU1Fg+R6azDbho+ZzuxEkJnCjLZQMozSq3y97ZmgwjA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script type="text/javascript">
+$(function() {
+  $("#data-table").tablesorter({sortList:[[1,1]],  theme : "bootstrap"});
+});
+</script>
+
+{{end}}
+

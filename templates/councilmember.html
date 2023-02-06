@@ -1,0 +1,216 @@
+{{template "base" .}}
+{{define "title"}}{{.Person.FullName}} Legislation{{end}}
+{{define "head"}}
+
+<style>
+.committees {
+  line-height: 18px;
+  font-size: 11px;
+}
+.committee {
+}
+.class, .district, .borough, .party {
+  font-size: .8rem;
+  font-weight: 200;
+}
+.member-type {
+  font-size: 10px;
+  background-color: #f7f0bc;
+  padding: 0 .25rem;
+}
+.social {
+  font-size: .9rem;
+}
+.external-links {
+  font-size: .9rem;
+}
+.note {
+	font-weight: 200;
+}
+
+.table-condensed>:not(caption)>*>* {
+	padding: 0.5rem 0;
+}
+.status-withdrawn > .name {
+  text-decoration: line-through;
+}
+/*.status-enacted {
+	--bs-bg-opacity: 1;
+	background-color: rgba(var(--bs-success-rgb),var(--bs-bg-opacity))!important;
+}
+.status-introduced, .status-committee, .status-laied {
+	background-color: #2f56a6 !important;
+}
+.status-withdrawn, .status-filed {
+	--bs-bg-opacity: 1;
+	background-color: rgba(var(--bs-secondary-rgb),var(--bs-bg-opacity))!important;
+}
+.status-vetoed {
+	--bs-bg-opacity: 1;
+	background-color: rgba(var(--bs-danger-rgb),var(--bs-bg-opacity))!important;
+}*/
+
+.attribution {
+  font-weight: 200;
+  font-size: .8rem;
+}
+.legislation {
+  margin-bottom: 1.25rem;
+}
+.legislation .last-update {
+  font-size: .7em;
+  background-color: #fff0c6;
+  padding: .1rem .2rem;
+}
+
+
+}
+</style>
+{{end}}
+
+
+{{define "middle"}}
+
+<div class="row justify-content-between">
+<div class="col-4">
+
+<h3>{{.Person.FullName}}</h3>
+<p><span class="class">{{.Person.Start.Format "Jan 2006"}} - {{.Person.End.Format "Jan 2006"}}</span>
+  {{if .Person.District}}
+    <br><span class="district">District {{.Person.District}}</span> <span class="borough">({{.Person.Borough}})</span>
+  {{end}}
+  {{if ne .Person.CouncilTitle "Council Member"}}
+    <br><span class="badge bg-info text-dark">{{.Person.CouncilTitle}}</span>
+  {{end}}
+
+</p>
+
+{{ if .Person.ActiveOfficeRecords }}
+<h4>Comittees</h4>
+<p class="committees">
+  {{range .Person.ActiveOfficeRecords }}
+  <span class="committee">{{.BodyName}}</span>
+  {{ if or (eq .MemberType "CHAIR") (eq .Title "CHAIRPERSON") }}<span class="member-type"> {{ if eq .Title "CHAIRPERSON" }}(chair){{else}}({{.Title | ToLower}}){{end}}</span>{{end}}
+  <br>
+  {{end }}
+</p>
+{{ end }}
+
+</div>
+<div class="col-3">
+{{ range .Person.SocialAccounts }}
+  <a href="{{.Link}}" class="{{.CSSClass}}">{{.Username}}</a><br>
+{{end}}
+</div>
+</div>
+
+{{if .Person.IsActive }}
+
+<div class="row">
+
+<div class="col-sm-12 col-md-6">
+
+<h4>Legislation ({{.CurrentSession}} Session)</h4>
+<p class="note">Council member {{.Person.FullName}} has introduced {{.PrimarySponsor.Number}} bills in the current legislative session.</p>
+
+{{ if .PrimarySponsor.Number}}
+<p class="note">
+{{ range $i, $s := .PrimarySponsor.Statuses}}
+  {{if ne $i 0 }},{{end}} {{$s.Count}} bills are {{$s.Description -}}
+{{end}}
+</p>
+{{end}}
+
+<!--
+<table class="table table-condensed">
+<tbody>
+{{ range .PrimarySponsor.Statuses}}
+<tr><td>{{.Count}} <span class="status">{{.Name}}</span><br>
+<div class="progress">
+  <div class="progress-bar {{.CSSClass}}" role="progressbar" style="width: {{printf "%0.f" .Percent}}%;" aria-valuenow="{{printf "%0.f" .Percent}}" aria-valuemin="0" aria-valuemax="100">{{printf "%0.f" .Percent}}%</div>
+</div>	
+</td></tr>
+{{ end }}
+</tbody>
+</table>
+-->
+
+
+
+ {{range .PrimarySponsor}}
+  <div class="legislation status-{{.StatusName | CSSClass}}">
+    <a href="{{.IntroLink}}" class="file-link"><span class="badge file">{{.IntroLinkText}}</span></a>
+
+    {{ if eq .StatusName "Enacted" }}
+    <span class="badge bg-success status">Enacted</span>
+    {{ else if eq .StatusName "Enacted (Mayor's Desk for Signature)" }}
+    <span class="badge bg-success status">Mayor's Desk for Signature</span>
+    {{else if eq .StatusName "Vetoed"}}
+    <span class="badge bg-danger status">Vetoed</span>
+    {{end}}
+    <span class="name">{{.Name}}</span><br>
+
+    <span class="attribution">{{if gt (len .Sponsors) 1}} with {{len .Sponsors}} sponsors{{end}}</span>
+  </div>
+{{end}}
+
+</div>
+
+
+{{ if .SecondarySponsor }}
+<div class="col-sm-12 col-md-6">
+
+<h4>Sponsored Legislation</h4>
+<p class="note">Council member {{.Person.FullName}} has sponsored {{.SecondarySponsor.Number}} bills originally introduced by other Council members in the current legislative session.</p>
+
+<!--
+<table class="table table-condensed">
+<tbody>
+{{ range .SecondarySponsor.Statuses}}
+<tr><td>{{.Count}} <span class="status">{{.Name}}</span><br>
+<div class="progress">
+  <div class="progress-bar {{.CSSClass}}" role="progressbar" style="width: {{printf "%0.f" .Percent}}%;" aria-valuenow="{{printf "%0.f" .Percent}}" aria-valuemin="0" aria-valuemax="100">{{printf "%0.f" .Percent}}%</div>
+</div>	
+</td></tr>
+{{ end }}
+</tbody>
+</table>
+-->
+
+ {{range .SecondarySponsor}}
+  <div class="legislation">
+    <a href="{{.IntroLink}}" class="file-link"><span class="badge file">{{.IntroLinkText}}</span></a>
+
+    {{ if eq .StatusName "Enacted" }}
+    <span class="badge bg-success status">Enacted</span>
+    {{ else if eq .StatusName "Enacted (Mayor's Desk for Signature)" }}
+    <span class="badge bg-success status">Mayor's Desk for Signature</span>
+    {{else if eq .StatusName "Vetoed"}}
+    <span class="badge bg-danger status">Vetoed</span>
+    {{end}}
+    <span class="name">{{.Name}}</span><br>
+
+    <span class="attribution">Introduced by <a href="/councilmembers/{{(index .Sponsors 0).Slug}}">{{(index .Sponsors 0).FullName}}</a></span>
+  </div>
+{{end}}
+
+
+</div>
+
+{{ end }}
+{{else}}
+<p>No longer active</p>
+
+{{end}}
+
+
+</div>
+
+
+{{end}}
+
+{{ define "last-updated"}}
+<p>Data Last Updated <span class="last-updated" title="{{.LastSync.LastRun}}">{{.LastSync.LastRun | Time}}</span></p>
+{{end}}
+
+

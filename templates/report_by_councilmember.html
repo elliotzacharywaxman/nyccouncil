@@ -1,0 +1,217 @@
+{{template "base" .}}
+{{define "title"}}Report: Councilmember Activity{{end}}
+{{define "head"}}
+
+<style>
+
+
+.form-select {
+  width:inherit;
+  display: inline-block;
+  max-width: 350px;
+}
+.form-check {
+  display: inline-block;
+}
+.select-session {
+  display: inline-block;
+  margin-right: 2em;
+}
+.select-committee {
+  display: inline-block;
+  margin-right: 2em;
+}
+
+@media (min-width: 576px) { 
+  .form-select {
+    max-width: 450px;
+  }
+}
+
+tr > th.number-col {
+  text-align: right;
+}
+
+#data-body > tr > td.number {
+  text-align: right;
+}
+
+.member-type {
+  font-size: 10px;
+  background-color: #f7f0bc;
+  padding: 0 .25rem;
+  margin-left: .5rem;
+}
+
+
+</style>
+{{end}}
+
+
+{{define "middle"}}
+
+
+<ul class="nav nav-tabs my-3">
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/most_sponsored">Sponsors</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/status">Legislative Activity</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/similarity">Similarity</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active" aria-current="page"  href="/reports/councilmembers">Council Members</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="/reports/committees">Committees</a>
+  </li>
+</ul>
+
+
+<fieldset class="my-5">
+  <div class="select-session">
+  <select name="session" id="session" class="form-select">
+    {{range .Sessions }}
+    <option value="{{.}}">{{.}} Legislative Session</option>
+    {{end}}
+  </select>
+  </div>
+  <div class="select-committee">
+  Committee: 
+  <select name="committee" id="committee" class="form-select">
+    <option value="" selected>All</option>
+    {{range .Committees }}
+    <option value="{{. | Slugify}}">{{.}}</option>
+    {{end}}
+  </select>
+  </div>
+</fieldset>
+
+<div id="data"><table class="table tablesorter" id="data-table">
+    <thead>
+      <tr>
+        <th>Council Member</th>
+        <th class="number-col" data-sortInitialOrder="desc">Bills Introduced</th>
+        <th class="number-col" data-sortInitialOrder="desc">Hearing</th>
+        <th class="number-col" data-sortInitialOrder="desc">Passed</th>
+        <th class="number-col" data-sortInitialOrder="desc">Bills Sponsored</th>
+        <th class="number-col" data-sortInitialOrder="desc">Hearing</th>
+        <th class="number-col" data-sortInitialOrder="desc">Passed</th>
+      </tr>
+    </thead>
+    <tbody id="data-body">
+      <template id="data-row">
+        <tr>
+          <td class="councilmember"><a class="councilmember"></a></td>
+          <td class="introduced number"></td>
+          <td class="introduced-hearing number"></td>
+          <td class="introduced-passed number"></td>
+          <td class="sponsored number"></td>
+          <td class="sponsored-hearing number"></td>
+          <td class="sponsored-passed number"></td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+</div>
+
+<div class="my-5"><p>Note: Bills that are withdrawn are excluded. Bills with multiple hearings are counted once. Sponsorships that are withdrawn are not shown.</p></div>
+
+
+
+{{end}}
+
+{{ define "last-updated"}}
+<p>Data Last Updated <span class="last-updated" title="{{.LastSync.LastRun}}">{{.LastSync.LastRun | Time}}</span></p>
+{{end}}
+
+{{define "javascript"}}
+<script type="text/javascript">
+// bootstrap current selection from URL
+const urlSearchParams = new URLSearchParams(window.location.search)
+const defaultSession = urlSearchParams.get("session") ? urlSearchParams.get("session") : "{{.Session}}";
+const sessionElement = document.getElementById("session");
+document.getElementById("committee").value = urlSearchParams.get("committee") === null? "" : urlSearchParams.get("committee")
+
+Array.from(sessionElement.options).forEach(e => {e.selected = (e.value == defaultSession)})
+sessionElement.addEventListener("change", _ => {
+  if (sessionElement.selectedIndex == 0 ) {
+    location.href = location.pathname;
+    return
+  }
+  var qs = new URLSearchParams(window.location.search)
+  qs.set("session", sessionElement.value)
+  location.href = location.pathname + "?" + qs.toString();
+})
+
+document.getElementById("committee").addEventListener("change", () => {
+  const s = document.getElementById("committee")
+  const c = s.options[s.selectedIndex].value;
+
+  var qs = new URLSearchParams(window.location.search)
+  if(c.length >= 1) {
+    qs.set("committee", c)
+  } else {
+    qs.delete("committee")
+  }
+  location.href = location.pathname + "?" + qs.toString();
+})
+
+
+let data = {{.Data}};
+
+let nf = new Intl.NumberFormat();
+let template = document.getElementById("data-row")
+let target = document.getElementById("data-body")
+
+data.forEach(d => {
+  var clone = template.content.cloneNode(true);
+  if (d.Person.FullName == "") { return }
+
+  let a = clone.querySelectorAll("a.councilmember")[0];
+  let td = clone.querySelectorAll("td.councilmember")[0];
+  {{if .IsCurrentSession}}
+  a.textContent = d.Person.FullName
+  a.href = "/councilmembers/" + d.Person.Slug
+  {{ else }}
+  td.removeChild(a);
+  td.textContent = d.Person.FullName;
+  {{end}}
+  if (d.OfficeRecord.MemberType == "CHAIR" || d.OfficeRecord.Title == "CHAIRPERSON" ) {
+    let s = document.createElement("span")
+    s.className = "member-type"
+    s.textContent = "(chair)"
+    td.appendChild(s)
+  } else if (d.OfficeRecord.MemberType !== "") {
+    let s = document.createElement("span")
+    s.className = "member-type"
+    s.textContent = "(committee member)"
+    td.appendChild(s)
+  }
+
+  clone.querySelectorAll(".introduced")[0].textContent = nf.format(d.IntroIntro);
+  clone.querySelectorAll(".introduced-hearing")[0].textContent = nf.format(d.IntroHearing);
+  clone.querySelectorAll(".introduced-passed")[0].textContent = nf.format(d.IntroPassed);
+  clone.querySelectorAll(".sponsored")[0].textContent = nf.format(d.SponsorIntro);
+  clone.querySelectorAll(".sponsored-hearing")[0].textContent = nf.format(d.SponsorHearing);
+  clone.querySelectorAll(".sponsored-passed")[0].textContent = nf.format(d.SponsorPassed);
+  target.appendChild(clone);
+
+})
+
+
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js" integrity="sha512-qzgd5cYSZcosqpzpn7zF2ZId8f/8CHmFKZ8j7mU4OUXTNRd5g+ZHBPsgKEwoqxCtdQvExE5LprwwPAgoicguNg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/css/theme.bootstrap_4.min.css" integrity="sha512-2C6AmJKgt4B+bQc08/TwUeFKkq8CsBNlTaNcNgUmsDJSU1Fg+R6azDbho+ZzuxEkJnCjLZQMozSq3y97ZmgwjA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script type="text/javascript">
+$(function() {
+  $("#data-table").tablesorter({sortList:[[1,1]],  theme : "bootstrap"});
+});
+</script>
+
+{{end}}
+

@@ -1,0 +1,71 @@
+{{template "base" .}}
+{{define "title"}}Recent NYC Council Legislation Changes{{end}}
+{{define "head"}}
+
+<style>
+.action-date {
+  font-weight: 200;
+  font-size: .8rem;
+  margin: 0 .4em;
+}
+.action {
+  font-weight: 200;
+  font-size: .9em;
+}
+.legislation {
+  margin-bottom: 1.25rem;
+}
+.attribution, .body {
+  font-weight: 200;
+  font-size: .8rem;
+}
+.status-withdrawn > .name {
+  text-decoration: line-through;
+}
+.scheduled {
+  margin: 0 .25rem;
+  font-size: .8rem;
+  background-color: #fff0c6;
+  padding: .1rem .2rem;
+}
+</style>
+{{end}}
+
+
+{{define "middle"}}
+
+<div class="row">
+
+<div class="col">
+
+<h3>Recent Legislation Changes</h3>
+<p>The following legislation changes happened in the past 30 days</p>
+
+{{range .Dates}}
+  <h4>{{.Date.Format "Jan 02 2006"}}{{if .IsFuture }}<span class="scheduled">⚠️ event scheduled on future date</span>{{end}}</h4>
+  {{range .Legislation}}
+  <div class="legislation status-{{.StatusName | CSSClass}}">
+    <a href="{{.IntroLink}}" class="file-link"><span class="badge file">{{.IntroLinkText}}</span></a>
+    <span class="action">{{.Action}}</span>
+    {{ if eq .StatusName "Enacted" }}
+    <span class="badge bg-success status">Enacted</span>
+    {{end}}
+    {{ if eq .StatusName "Vetoed"}}
+    <span class="badge bg-danger status">Vetoed</span>
+    {{end}}
+    <br>
+    <span class="name">{{.Name}}</span><br>
+    <span class="attribution">by <a href="/councilmembers/{{.PrimarySponsor.Slug}}" class="sponsor">{{.PrimarySponsor.FullName}}</a> {{if gt .NumberSponsors 1}} with {{.NumberSponsors}} sponsors{{end}},</span> <span class="body">{{.BodyName}}</span>
+  </div>
+  {{end}}
+{{end}}
+
+</div>
+</div>
+
+{{end}}
+
+{{ define "last-updated"}}
+<p>Data Last Updated <span class="last-updated" title="{{.LastSync.LastRun}}">{{.LastSync.LastRun | Time}}</span></p>
+{{end}}
+
